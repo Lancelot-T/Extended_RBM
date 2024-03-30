@@ -395,7 +395,7 @@ print(accuracy_std_COPGAN)
 df_final_KS = pd.DataFrame()
 
 for i, df in enumerate(all_results_ks_CG):
-    df_final_KS[f'DataFrame_{i+1}'] = df.iloc[:, 1]  
+    df_final_KS[f'DataFrame_{i+1}'] = df.iloc[:, 0]  
 
 mean_per_row = df_final_KS.mean(axis=1)
 median_per_row = df_final_KS.median(axis=1)
@@ -459,7 +459,7 @@ summary_df_KL.to_excel(excel_path, index=False)
 df_final_KS_v1 = pd.DataFrame()
 
 for i, df in enumerate(all_results_ks_CTGAN):
-    df_final_KS_v1[f'DataFrame_{i+1}'] = df.iloc[:, 1]  
+    df_final_KS_v1[f'DataFrame_{i+1}'] = df.iloc[:, 0]  
 
 mean_per_row = df_final_KS_v1.mean(axis=1)
 median_per_row = df_final_KS_v1.median(axis=1)
@@ -524,7 +524,7 @@ summary_df_KL_v1.to_excel(excel_path, index=False)
 df_final_KS_v2 = pd.DataFrame()
 
 for i, df in enumerate(all_results_ks_TVAE):
-    df_final_KS_v2[f'DataFrame_{i+1}'] = df.iloc[:, 1]  
+    df_final_KS_v2[f'DataFrame_{i+1}'] = df.iloc[:, 0]  
 
 mean_per_row = df_final_KS_v2.mean(axis=1)
 median_per_row = df_final_KS_v2.median(axis=1)
@@ -587,7 +587,7 @@ summary_df_KL_v2.to_excel(excel_path, index=False)
 df_final_KS_v3 = pd.DataFrame()
 
 for i, df in enumerate(all_results_ks_COPGAN):
-    df_final_KS_v3[f'DataFrame_{i+1}'] = df.iloc[:, 1]  
+    df_final_KS_v3[f'DataFrame_{i+1}'] = df.iloc[:, 0]  
 
 mean_per_row = df_final_KS_v3.mean(axis=1)
 median_per_row = df_final_KS_v3.median(axis=1)
