@@ -138,39 +138,22 @@ def kl_divergence(df1, df2):
 ####################################################
 
 
-# def type_variables(data):
-#     quali_var = data.select_dtypes(exclude=['float64', 'int64', 'float32', 'int32'])    
-#     for column in quali_var.columns:
-#         unique_values = quali_var[column].unique()
-#         mapping = {value: i for i, value in enumerate(unique_values)}
-#         data[column] = data[column].map(mapping)    
-#     num_var = data.select_dtypes(include=['float64', 'int64', 'float32', 'int32'])
-#     binaire_var = num_var.apply(pd.Series.nunique)==2
-#     binaire_var = binaire_var[binaire_var==True].index
-#     num_var = num_var.drop(binaire_var, axis=1)
-#     binaire_var = data[binaire_var].copy()  # Crée une copie explicite du DataFrame binaire_var
-#     for col in binaire_var.columns:
-#         if any(binaire_var.loc[:,col] == 2):
-#             binaire_var.loc[:, col] = binaire_var.loc[:,col].replace({2: 1, 1: 0})  
-#     return num_var, binaire_var
+ def type_variables(data):
+     quali_var = data.select_dtypes(exclude=['float64', 'int64', 'float32', 'int32'])    
+     for column in quali_var.columns:
+         unique_values = quali_var[column].unique()
+         mapping = {value: i for i, value in enumerate(unique_values)}
+         data[column] = data[column].map(mapping)    
+     num_var = data.select_dtypes(include=['float64', 'int64', 'float32', 'int32'])
+     binaire_var = num_var.apply(pd.Series.nunique)==2
+     binaire_var = binaire_var[binaire_var==True].index
+     num_var = num_var.drop(binaire_var, axis=1)
+     binaire_var = data[binaire_var].copy()  # Crée une copie explicite du DataFrame binaire_var
+     for col in binaire_var.columns:
+         if any(binaire_var.loc[:,col] == 2):
+             binaire_var.loc[:, col] = binaire_var.loc[:,col].replace({2: 1, 1: 0})  
+     return num_var, binaire_var
 
-#En cas de warning prendre la fonction au dessus
-
-def type_variables(data):
-    quali_var = data.select_dtypes(exclude=['float64', 'int64', 'float32', 'int32'])    
-    for column in quali_var.columns:
-        unique_values = quali_var[column].unique()
-        mapping = {value: i for i, value in enumerate(unique_values)}
-        data[column] = data[column].map(mapping)    
-    num_var = data.select_dtypes(include=['float64', 'int64', 'float32', 'int32'])
-    binaire_var = num_var.apply(pd.Series.nunique)==2
-    binaire_var = binaire_var[binaire_var==True].index
-    num_var=num_var.drop(binaire_var, axis=1)
-    binaire_var = data[binaire_var]  
-    for col in binaire_var.columns:
-        if any(binaire_var[col] == 2):
-            binaire_var[col] = binaire_var[col].replace({2: 1, 1: 0})   
-    return num_var, binaire_var
 
 def normalisation(data):
     data_bis=data.copy()
