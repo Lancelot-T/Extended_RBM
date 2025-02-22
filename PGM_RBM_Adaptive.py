@@ -192,7 +192,7 @@ def denormalisation(data, dt_initial):
         data_bis[colonne]=data[colonne]*(maximum - minimum) + minimum
     return(data_bis)
 
-def Machine_Boltzmann_Adaptative(data):
+def Machine_Boltzmann_Adaptative(data, NB_G, NH, choc_moy=0, choc_sd=0):
   training_set_num, training_set_binaire = type_variables(data)
   data_initiale = pd.concat([training_set_num, training_set_binaire], axis=1)
   combinaison_types = data.dtypes.tolist()
@@ -202,23 +202,28 @@ def Machine_Boltzmann_Adaptative(data):
   training_set_num=normalisation(training_set_num)
   nb_client = len(data)
   nv=len(training_set_num.columns) + len(training_set_binaire.columns)
-  nh=round((2/3)*nv)  
+  nh=NH
   training_set = pd.concat([training_set_num, training_set_binaire], axis=1)  
   new_data=None
   vec_mean=None 
   a = torch.randn(1, nh)
   b = torch.randn(1, nv)
   W = torch.randn(nh, nv)
-  nb_variables_num = len(training_set_num.columns)
-  for variable in range(0,nb_variables_num):
+  
+  for variable in training_set_num.columns:
       if vec_mean is None:
-          vec_mean=[statistics.mean(training_set_num.iloc[variable])]
-          vec_sd=[statistics.stdev(training_set_num.iloc[variable])]
+          vec_mean=[statistics.mean(training_set_num[variable])]
+          vec_sd=[statistics.stdev(training_set_num[variable])]
       else:
-          bis=statistics.mean(training_set_num.iloc[variable])
-          bis_sd=statistics.stdev(training_set_num.iloc[variable])
+          bis=statistics.mean(training_set_num[variable])
+          bis_sd=statistics.stdev(training_set_num[variable])
           vec_mean.append(bis)
-          vec_sd.append(bis_sd)    
+          vec_sd.append(bis_sd)
+          
+  #Partie attribution des chocs
+  #vec_mean=vec_mean + 1 + choc_moy#exemple 0.05 pour 5% de choc
+  #vec_sd=vec_sd + 1 + choc_sd
+  
   for observation in range(0, nb_client):     
       if observation % 500 == 0:
          print(f"Avancement : {observation}/{nb_client} observations traitées.")      
@@ -226,7 +231,7 @@ def Machine_Boltzmann_Adaptative(data):
       dt=training_set.iloc[observation:1+observation]
       dt = convert(dt)
       dt_tensor = torch.FloatTensor(dt)
-      for Gibbs in range(0,150):
+      for Gibbs in range(0,NB_G):
           mat2 = dt_tensor
           wx=torch.mm(mat2, W.t())
           activation = wx + a.expand_as(wx)
@@ -269,7 +274,7 @@ def Machine_Boltzmann_Adaptative(data):
         if type_actuel == float and type_initial == int:
             dt_final[column] = dt_final[column].round().astype(int)
         elif type_actuel == float:
-            dt_final[column] = dt_final[column].round(3)
+            dt_final[column] = dt_final[column].round(2)
         else:
             dt_final[column] = dt_final[column].astype(type_initial)
   for col in dt_final.columns:
@@ -277,9 +282,7 @@ def Machine_Boltzmann_Adaptative(data):
       max_val = min_max_dict[col]['max'] 
       dt_final[col] = dt_final[col].apply(lambda x: min_val if x < min_val else x)
       dt_final[col] = dt_final[col].apply(lambda x: max_val if x > max_val else x)
-  #hist_dataframe(data_initiale)
-  #hist_dataframe(dt_final)  
-  return dt_final, data_initiale
+  return dt_final, data_initiale, W, b, a
 
 #Appel de la Machine
 #dt_genere = Machine_Boltzmann_Adaptative(DF)
