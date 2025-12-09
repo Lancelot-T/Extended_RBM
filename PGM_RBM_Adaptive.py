@@ -192,97 +192,129 @@ def denormalisation(data, dt_initial):
         data_bis[colonne]=data[colonne]*(maximum - minimum) + minimum
     return(data_bis)
 
-def Machine_Boltzmann_Adaptative(data, NB_G, NH, choc_moy=0, choc_sd=0):
-  training_set_num, training_set_binaire = type_variables(data)
-  data_initiale = pd.concat([training_set_num, training_set_binaire], axis=1)
-  combinaison_types = data.dtypes.tolist()
-  min_max_dict = {}
-  for col in data_initiale.columns:
-    min_max_dict[col] = {'min': data_initiale[col].min(), 'max': data_initiale[col].max()}
-  training_set_num=normalisation(training_set_num)
-  nb_client = len(data)
-  nv=len(training_set_num.columns) + len(training_set_binaire.columns)
-  nh=NH
-  training_set = pd.concat([training_set_num, training_set_binaire], axis=1)  
-  new_data=None
-  vec_mean=None 
-  a = torch.randn(1, nh)
-  b = torch.randn(1, nv)
-  W = torch.randn(nh, nv)
-  
-  for variable in training_set_num.columns:
-      if vec_mean is None:
-          vec_mean=[statistics.mean(training_set_num[variable])]
-          vec_sd=[statistics.stdev(training_set_num[variable])]
-      else:
-          bis=statistics.mean(training_set_num[variable])
-          bis_sd=statistics.stdev(training_set_num[variable])
-          vec_mean.append(bis)
-          vec_sd.append(bis_sd)
-          
-  #Partie attribution des chocs
-  #vec_mean=vec_mean + 1 + choc_moy#exemple 0.05 pour 5% de choc
-  #vec_sd=vec_sd + 1 + choc_sd
-  
-  for observation in range(0, nb_client):     
-      if observation % 500 == 0:
-         print(f"Avancement : {observation}/{nb_client} observations traitées.")      
-      Gibbs=0
-      dt=training_set.iloc[observation:1+observation]
-      dt = convert(dt)
-      dt_tensor = torch.FloatTensor(dt)
-      for Gibbs in range(0,NB_G):
-          mat2 = dt_tensor
-          wx=torch.mm(mat2, W.t())
-          activation = wx + a.expand_as(wx)
-          p_h_given_v = torch.sigmoid(activation)        
-          ph0=torch.bernoulli(p_h_given_v)
-          y = ph0 
-          wy=torch.mm(y, W)
-          activation = wy + b
-          p_h_given_h = torch.sigmoid(activation)
-          Taille_globale=len(training_set.columns)
-          Taille_Data_Binaire=len(training_set_binaire.columns)
-          diff_taille=Taille_globale - Taille_Data_Binaire
-          p_h_given_h_num = p_h_given_h.narrow(1, 0, diff_taille)
-          p_h_given_h_binaire = p_h_given_h.narrow(1, diff_taille, Taille_Data_Binaire)
-          result_num=norm.ppf(p_h_given_h_num , loc=vec_mean, scale=vec_sd)
-          result_binaire = torch.bernoulli(p_h_given_h_binaire)
-          result_binaire=result_binaire.numpy()
-          result = np.concatenate((result_num, result_binaire), axis=1)
-          result = torch.FloatTensor(result)         
-          Valeur_result=torch.mean(result[~torch.isinf(result)]).item()
-          result[torch.isinf(result)] = Valeur_result  
-          W += (torch.mm(dt_tensor.t(), p_h_given_v) - torch.mm(result.t(), ph0)).t()
-          b += dt_tensor - result
-          a += p_h_given_v - ph0         
-      result_final=result
-      result_final=result_final.tolist()
-      Nom_colonnes = training_set.columns.tolist()
-      result_final=pd.DataFrame(result_final,columns=Nom_colonnes)
-      if new_data is None:
-         new_data=result_final
-      else:
-         new_data=pd.concat([new_data,result_final]).reset_index(drop=True)  
-  new_data = new_data[data.columns]
-  data_initiale = data_initiale[data.columns]
-  dt_final=denormalisation(new_data, data)
-  for i, column in enumerate(dt_final.columns):
-    type_actuel = dt_final[column].dtype
-    type_initial = combinaison_types[i]
-    if type_actuel != type_initial:
-        if type_actuel == float and type_initial == int:
-            dt_final[column] = dt_final[column].round().astype(int)
-        elif type_actuel == float:
-            dt_final[column] = dt_final[column].round(2)
+def Machine_Boltzmann_Adaptative(data, NB_G, NH, batch_size=10, choc_moy=0, choc_sd=0):
+    
+    training_set_num, training_set_binaire = type_variables(data)
+    data_initiale = pd.concat([training_set_num, training_set_binaire], axis=1)
+    combinaison_types = data.dtypes.tolist()
+    min_max_dict = {col:{'min':data[col].min(), 'max':data[col].max()} for col in data_initiale.columns}
+    
+    training_set_num = normalisation(training_set_num)
+    nb_client = len(data)
+    nv = len(training_set_num.columns) + len(training_set_binaire.columns)
+    nh = NH
+    training_set = pd.concat([training_set_num, training_set_binaire], axis=1)
+    
+    new_data = None
+    vec_mean = None
+    a = torch.randn(1, nh)
+    b = torch.randn(1, nv)
+    W = torch.randn(nh, nv)
+    
+    for variable in training_set_num.columns:
+        if vec_mean is None:
+            vec_mean=[statistics.mean(training_set_num[variable])]
+            vec_sd=[statistics.stdev(training_set_num[variable])]
         else:
-            dt_final[column] = dt_final[column].astype(type_initial)
-  for col in dt_final.columns:
-      min_val = min_max_dict[col]['min']
-      max_val = min_max_dict[col]['max'] 
-      dt_final[col] = dt_final[col].apply(lambda x: min_val if x < min_val else x)
-      dt_final[col] = dt_final[col].apply(lambda x: max_val if x > max_val else x)
-  return dt_final, data_initiale, W, b, a
+            vec_mean.append(statistics.mean(training_set_num[variable]))
+            vec_sd.append(statistics.stdev(training_set_num[variable]))
+    
+    
+    scores = []
+    
+    #Divergence Contrastive
+    for start_idx in range(0, nb_client, batch_size):
+        end_idx = min(start_idx + batch_size, nb_client)
+        dt = training_set.iloc[start_idx:end_idx]
+        dt_tensor = torch.FloatTensor(convert(dt))
+        
+        Taille_globale = len(training_set.columns)
+        Taille_Data_Binaire = len(training_set_binaire.columns)
+        diff_taille = Taille_globale - Taille_Data_Binaire
+        
+        #Echantillonnage de Gibbs
+        for Gibbs in range(NB_G):
+            wx = torch.mm(dt_tensor, W.t()) + a.expand_as(torch.mm(dt_tensor, W.t()))
+            p_h_given_v = torch.sigmoid(wx)
+            p_h_given_v = torch.clamp(p_h_given_v, 0.0, 1.0)  # <-- protection
+            ph0 = torch.bernoulli(p_h_given_v)
+            
+            wy = torch.mm(ph0, W) + b
+            p_h_given_h = torch.sigmoid(wy)
+            
+            p_h_given_h_num = p_h_given_h.narrow(1, 0, diff_taille)
+            p_h_given_h_binaire = p_h_given_h.narrow(1, diff_taille, Taille_Data_Binaire)
+            p_h_given_h_binaire = torch.clamp(p_h_given_h_binaire, 0.0, 1.0)  # <-- protection
+            
+            result_num = norm.ppf(np.clip(p_h_given_h_num.detach().numpy(), 1e-6, 1-1e-6), loc=vec_mean, scale=vec_sd)
+            
+            result_num[np.isinf(result_num)] = np.mean(result_num[~np.isinf(result_num)])
+            
+            result_binaire = torch.bernoulli(p_h_given_h_binaire).numpy()
+            
+            result = torch.FloatTensor(np.concatenate((result_num, result_binaire), axis=1))
+            
+            W += (torch.mm(dt_tensor.t(), p_h_given_v) - torch.mm(result.t(), ph0)).t()
+            b += torch.mean(dt_tensor - result, dim=0, keepdim=True)
+            a += torch.mean(p_h_given_v - ph0, dim=0, keepdim=True)
+        
+        result_final = pd.DataFrame(result.numpy(), columns=training_set.columns)
+        
+        if new_data is None:
+            new_data = result_final
+        else:
+            new_data = pd.concat([new_data, result_final]).reset_index(drop=True)
+        
+        for i in range(len(dt_tensor)):
+            obs_reelle = dt_tensor.numpy()[i]
+            gen_np = result_final.values[i]
+            
+            obs_num = obs_reelle[:diff_taille]
+            obs_bin = obs_reelle[diff_taille:]
+            gen_num = gen_np[:diff_taille]
+            gen_bin = gen_np[diff_taille:]
+            
+            rmse_num = np.sqrt(np.mean((obs_num - gen_num)**2))
+            hamming_bin = np.mean(obs_bin != gen_bin)
+            
+            scores.append({'rmse_num': rmse_num, 'hamming_bin': hamming_bin})
+        
+        print(f"Avancement : {end_idx}/{nb_client} observations traitées.")
+    
+    new_data = new_data[data.columns]
+    dt_final = denormalisation(new_data, data)
+    
+    for i, column in enumerate(dt_final.columns):
+        type_actuel = dt_final[column].dtype
+        type_initial = combinaison_types[i]
+        if type_actuel != type_initial:
+            if type_actuel == float and type_initial == int:
+                dt_final[column] = dt_final[column].round().astype(int)
+            elif type_actuel == float:
+                dt_final[column] = dt_final[column].round(2)
+            else:
+                dt_final[column] = dt_final[column].astype(type_initial)
+        min_val = min_max_dict[column]['min']
+        max_val = min_max_dict[column]['max']
+        dt_final[column] = dt_final[column].clip(min_val, max_val)
+    
+    df_scores = pd.DataFrame(scores)
+    
+    plt.figure()
+    plt.plot(df_scores['rmse_num'])
+    plt.title('RMSE variables continues par observation')
+    plt.xlabel('Observation')
+    plt.ylabel('RMSE')
+    plt.show()
+    
+    plt.figure()
+    plt.plot(df_scores['hamming_bin'])
+    plt.title('Hamming distance variables binaires par observation')
+    plt.xlabel('Observation')
+    plt.ylabel('Hamming distance')
+    plt.show()
+    
+    return dt_final, data_initiale, W, b, a, df_scores
 
 #Appel de la Machine
 #dt_genere = Machine_Boltzmann_Adaptative(DF)
@@ -429,6 +461,7 @@ excel_path = os.path.join(folder_path, "summary_df_KEN_RBM.xlsx")
 summary_df_KEN.to_excel(excel_path, index=False)
 excel_path = os.path.join(folder_path, "summary_df_KL_RBM.xlsx")
 summary_df_KL.to_excel(excel_path, index=False)
+
 
 
 
