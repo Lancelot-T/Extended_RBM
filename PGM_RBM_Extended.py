@@ -192,7 +192,7 @@ def denormalisation(data, dt_initial):
         data_bis[colonne]=data[colonne]*(maximum - minimum) + minimum
     return(data_bis)
 
-def Machine_Boltzmann_Adaptative(data, NB_G, NH, batch_size=10, choc_moy=0, choc_sd=0):
+def Machine_Boltzmann_Extended(data, NB_G, NH, batch_size=10, choc_moy=0, choc_sd=0):
     
     training_set_num, training_set_binaire = type_variables(data)
     data_initiale = pd.concat([training_set_num, training_set_binaire], axis=1)
@@ -317,7 +317,7 @@ def Machine_Boltzmann_Adaptative(data, NB_G, NH, batch_size=10, choc_moy=0, choc
     return dt_final, data_initiale, W, b, a, df_scores
 
 #Appel de la Machine
-#dt_genere = Machine_Boltzmann_Adaptative(DF)
+#dt_genere = Machine_Boltzmann_Extended(DF)
 #dt_1=dt_genere[0]
 #dt_2=dt_genere[1]
 
@@ -461,6 +461,7 @@ excel_path = os.path.join(folder_path, "summary_df_KEN_RBM.xlsx")
 summary_df_KEN.to_excel(excel_path, index=False)
 excel_path = os.path.join(folder_path, "summary_df_KL_RBM.xlsx")
 summary_df_KL.to_excel(excel_path, index=False)
+
 
 
 
