@@ -6,6 +6,7 @@ The PGM_Generateurs_Alternatifs program allows us to retrieve the results of the
 
 If you use this work, please cite:
 
+```bibtex
 @inproceedings{tullio2024extended,
   title={Extended Boltzmann Machine Generative Model},
   author={Tullio, Lancelot and Rifqi, Maria},
